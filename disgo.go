@@ -12,11 +12,11 @@ type Provider interface {
 	// VerifyAuth verify login code and generate oauth2 token
 	VerifyAuth(ctx context.Context, code string) (*oauth2.Token, error)
 	// GetAuthorizedUser get oauth2 user info
-	GetAuthorizedUser() ([]byte, error)
+	GetAuthorizedUser() (*provider.User, error)
 	// GetDirectoryList list directories
-	GetDirectoryList(parentId string) ([]byte, error)
+	GetDirectoryList(parentId string) (*provider.FileList, error)
 	// CreateDirectory create a directory on target
-	CreateDirectory(name, parentId string) ([]byte, error)
+	CreateDirectory(name, parentId string) (*provider.File, error)
 	// DeleteDirectory delete directory by id
 	DeleteDirectory(id string) error
 }

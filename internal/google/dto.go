@@ -11,7 +11,7 @@ type User struct {
 	} `json:"user"`
 }
 
-type Directory struct {
+type File struct {
 	Kind     string `json:"kind"`
 	Id       string `json:"id"`
 	Name     string `json:"name"`
@@ -21,10 +21,5 @@ type Directory struct {
 type FileList struct {
 	Kind             string `json:"kind"`
 	IncompleteSearch bool   `json:"incompleteSearch"`
-	Files            []struct {
-		Kind     string `json:"kind"`
-		MimeType string `json:"mimeType"`
-		Id       string `json:"id"`
-		Name     string `json:"name"`
-	} `json:"files"`
+	Files            []File `json:"files"`
 }

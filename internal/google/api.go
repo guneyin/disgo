@@ -18,8 +18,8 @@ type MimeType string
 const (
 	baseUrl = "https://www.googleapis.com/drive/v3"
 
-	MimeTypeFolder = "application/vnd.google-apps.folder"
-	MimeTypeFile   = "application/vnd.google-apps.file"
+	MimeTypeFolder MimeType = "application/vnd.google-apps.folder"
+	MimeTypeFile            = "application/vnd.google-apps.file"
 )
 
 var (
@@ -138,8 +138,8 @@ func (a *Api) FileList(mimeType MimeType, parentId string) (*FileList, error) {
 	return data, nil
 }
 
-func (a *Api) CreateDirectory(name, parentId string) (*Directory, error) {
-	data := &Directory{}
+func (a *Api) CreateDirectory(name, parentId string) (*File, error) {
+	data := &File{}
 
 	body := struct {
 		Name     string   `json:"name"`
@@ -147,7 +147,7 @@ func (a *Api) CreateDirectory(name, parentId string) (*Directory, error) {
 		Parents  []string `json:"parents"`
 	}{
 		Name:     name,
-		MimeType: MimeTypeFolder,
+		MimeType: string(MimeTypeFolder),
 		Parents:  []string{parentId},
 	}
 

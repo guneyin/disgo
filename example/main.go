@@ -77,5 +77,7 @@ func (h *handler) user(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(user)
+
+	data, _ := json.Marshal(user)
+	_, _ = w.Write(data)
 }
