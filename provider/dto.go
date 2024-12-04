@@ -20,6 +20,7 @@ type User struct {
 type File struct {
 	Id   string   `json:"id"`
 	Name string   `json:"name"`
+	Size int64    `json:"size"`
 	Type MimeType `json:"type"`
 }
 

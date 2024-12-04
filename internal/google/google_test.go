@@ -7,6 +7,7 @@ import (
 	"github.com/guneyin/disgo/internal/utils"
 	. "github.com/smartystreets/goconvey/convey"
 	"math/rand/v2"
+	"os"
 	"testing"
 	"time"
 )
@@ -64,12 +65,12 @@ func TestFileList(t *testing.T) {
 		t.Skip("skipping test in short mode.")
 	}
 
-	parentId := "1Swd9MRtY0ON-xI1jwR-NQXNQhMe0_4eY"
+	parentId := "1Q6EXwfWKxNJuNLHefiwBViVg4WrcvgmJ"
 
 	Convey("Test File List", t, func() {
 		gp := google.NewTestApi(t)
 
-		fileList, err := gp.FileList(google.MimeTypeFolder, parentId)
+		fileList, err := gp.FileList(google.MimeTypeNone, parentId)
 		So(err, ShouldBeNil)
 		So(fileList, ShouldNotBeEmpty)
 
@@ -108,6 +109,25 @@ func TestDeleteDirectory(t *testing.T) {
 		gp := google.NewTestApi(t)
 
 		err := gp.DeleteDirectory(dirId)
+		So(err, ShouldBeNil)
+	})
+}
+
+func TestDownloadFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
+
+	fileId := "1ytNbgLmYvHcTZr6u8Fc_zLPx21OjYuwv"
+
+	Convey("Test Download File", t, func() {
+		gp := google.NewTestApi(t)
+
+		out, err := os.Create("downloaded.zip")
+		So(err, ShouldBeNil)
+		defer out.Close()
+
+		err = gp.DownloadFile(fileId, out)
 		So(err, ShouldBeNil)
 	})
 }

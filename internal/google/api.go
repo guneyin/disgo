@@ -7,6 +7,7 @@ import (
 	"github.com/imroc/req/v3"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -18,7 +19,8 @@ type MimeType string
 const (
 	baseUrl = "https://www.googleapis.com/drive/v3"
 
-	MimeTypeFolder MimeType = "application/vnd.google-apps.folder"
+	MimeTypeNone   MimeType = ""
+	MimeTypeFolder          = "application/vnd.google-apps.folder"
 	MimeTypeFile            = "application/vnd.google-apps.file"
 )
 
@@ -118,7 +120,11 @@ func (a *Api) About() (*User, error) {
 func (a *Api) FileList(mimeType MimeType, parentId string) (*FileList, error) {
 	data := &FileList{}
 
-	q := fmt.Sprintf("mimeType = '%s'", mimeType)
+	q := "not name = ''"
+	if mimeType != MimeTypeNone {
+		q = fmt.Sprintf("mimeType = '%s'", mimeType)
+	}
+
 	parentId = strings.TrimSpace(parentId)
 	if parentId != "" {
 		q = fmt.Sprintf(`%s and '%s' in parents`, q, parentId)
@@ -152,7 +158,7 @@ func (a *Api) CreateDirectory(name, parentId string) (*File, error) {
 	}
 
 	u := a.apiUrl("/files")
-	res, err := req.DevMode().R().
+	res, err := req.R().
 		SetBody(body).
 		SetSuccessResult(data).
 		Post(u.String())
@@ -172,6 +178,43 @@ func (a *Api) DeleteDirectory(id string) error {
 	res, err := req.R().
 		SetBody(map[string]any{"trashed": true}).
 		Patch(u.String())
+	if err != nil {
+		return err
+	}
+	if res.StatusCode != http.StatusOK {
+		return errors.New(res.Status)
+	}
+
+	return nil
+}
+
+func (a *Api) GetFileMeta(id string) (*File, error) {
+	data := &File{}
+
+	u := a.apiUrl("/files", "fields", "kind,id,name,mimeType,size").JoinPath(id)
+	res, err := req.R().
+		SetSuccessResult(data).
+		Get(u.String())
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode != http.StatusOK {
+		return nil, errors.New(res.Status)
+	}
+
+	return data, nil
+}
+
+func (a *Api) DownloadFile(id string, w io.Writer) error {
+	u := a.apiUrl("/files", "alt", "media").JoinPath(id)
+	q := u.Query()
+	q.Del("oauth_token")
+	u.RawQuery = q.Encode()
+
+	res, err := req.DevMode().R().
+		SetOutput(w).
+		SetBearerAuthToken(a.oauth2token.AccessToken).
+		Get(u.String())
 	if err != nil {
 		return err
 	}

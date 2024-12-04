@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/guneyin/disgo/internal/google"
 	"golang.org/x/oauth2"
+	"io"
 )
 
 type Google struct {
@@ -56,6 +57,15 @@ func (g *Google) GetDirectoryList(parentId string) (*FileList, error) {
 	return g.toFileList(data)
 }
 
+func (g *Google) GetDirectory(id string) (*FileList, error) {
+	data, err := g.api.FileList(google.MimeTypeNone, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return g.toFileList(data)
+}
+
 func (g *Google) CreateDirectory(name, parentId string) (*File, error) {
 	data, err := g.api.CreateDirectory(name, parentId)
 	if err != nil {
@@ -69,45 +79,15 @@ func (g *Google) DeleteDirectory(id string) error {
 	return g.api.DeleteDirectory(id)
 }
 
-func (g *Google) toUserDto(user *google.User) *User {
-	return &User{
-		Kind:         user.User.Kind,
-		DisplayName:  user.User.DisplayName,
-		PhotoLink:    user.User.PhotoLink,
-		Me:           user.User.Me,
-		PermissionId: user.User.PermissionId,
-		EmailAddress: user.User.EmailAddress,
-	}
-}
-
-func (g *Google) toFile(file *google.File) (*File, error) {
-	return &File{
-		Id:   file.Id,
-		Name: file.Name,
-		Type: g.toMimeType(file.MimeType),
-	}, nil
-}
-
-func (g *Google) toFileList(fl *google.FileList) (*FileList, error) {
-	list := make([]File, len(fl.Files))
-	for i, f := range fl.Files {
-		list[i] = File{
-			Id:   f.Id,
-			Name: f.Name,
-			Type: g.toMimeType(f.MimeType),
-		}
+func (g *Google) GetFileMeta(id string) (*File, error) {
+	data, err := g.api.GetFileMeta(id)
+	if err != nil {
+		return nil, err
 	}
 
-	return &FileList{Files: list}, nil
+	return g.toFile(data)
 }
 
-func (g *Google) toMimeType(mt string) MimeType {
-	switch google.MimeType(mt) {
-	case google.MimeTypeFolder:
-		return MimeTypeFolder
-	case google.MimeTypeFile:
-		return MimeTypeFile
-	default:
-		return MimeTypeUnknown
-	}
+func (g *Google) DownloadFile(id string, w io.Writer) error {
+	return g.api.DownloadFile(id, w)
 }

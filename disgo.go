@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/guneyin/disgo/provider"
 	"golang.org/x/oauth2"
+	"io"
 )
 
 type Provider interface {
@@ -15,10 +16,17 @@ type Provider interface {
 	GetAuthorizedUser() (*provider.User, error)
 	// GetDirectoryList list directories
 	GetDirectoryList(parentId string) (*provider.FileList, error)
+	// GetDirectory list directory content
+	GetDirectory(id string) (*provider.FileList, error)
 	// CreateDirectory create a directory on target
 	CreateDirectory(name, parentId string) (*provider.File, error)
 	// DeleteDirectory delete directory by id
 	DeleteDirectory(id string) error
+	// GetFileMeta get file meta
+	GetFileMeta(id string) (*provider.File, error)
+	// DownloadFile download file content
+	DownloadFile(id string, w io.Writer) error
+	//UploadFile(file *provider.File) (*provider.File, error)
 }
 
 var _ Provider = (*provider.Google)(nil)

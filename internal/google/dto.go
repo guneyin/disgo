@@ -16,6 +16,7 @@ type File struct {
 	Id       string `json:"id"`
 	Name     string `json:"name"`
 	MimeType string `json:"mimeType"`
+	Size     string `json:"size"`
 }
 
 type FileList struct {
