@@ -7,6 +7,8 @@ import (
 	"github.com/imroc/req/v3"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/drive/v3"
+	"google.golang.org/api/option"
 	"io"
 	"net/http"
 	"net/url"
@@ -38,10 +40,11 @@ var (
 )
 
 type Api struct {
+	ds           *drive.Service
 	rc           *req.Client
 	apiKey       string
-	oauth2token  oauth2.Token
-	oauth2config oauth2.Config
+	oauth2token  *oauth2.Token
+	oauth2config *oauth2.Config
 }
 
 type ApiConfig struct {
@@ -51,19 +54,27 @@ type ApiConfig struct {
 	CallBackUrl  string
 }
 
-func NewApi(config ApiConfig, accessToken string) *Api {
-	return &Api{
-		rc:          req.C(),
-		apiKey:      config.ApiKey,
-		oauth2token: oauth2.Token{AccessToken: accessToken},
-		oauth2config: oauth2.Config{
-			RedirectURL:  config.CallBackUrl,
-			ClientID:     config.ClientID,
-			ClientSecret: config.ClientSecret,
-			Scopes:       authScopes,
-			Endpoint:     google.Endpoint,
-		},
+func NewApi(ctx context.Context, config ApiConfig, ts *oauth2.Token) (*Api, error) {
+	oauth2Config := &oauth2.Config{
+		RedirectURL:  config.CallBackUrl,
+		ClientID:     config.ClientID,
+		ClientSecret: config.ClientSecret,
+		Scopes:       authScopes,
+		Endpoint:     google.Endpoint,
 	}
+
+	ds, err := drive.NewService(ctx, option.WithTokenSource(oauth2Config.TokenSource(ctx, ts)))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Api{
+		rc:           req.C(),
+		apiKey:       config.ApiKey,
+		oauth2token:  ts,
+		oauth2config: oauth2Config,
+		ds:           ds,
+	}, nil
 }
 
 func (a *Api) apiUrl(route string, params ...string) *url.URL {
@@ -72,7 +83,6 @@ func (a *Api) apiUrl(route string, params ...string) *url.URL {
 
 	q := u.Query()
 	q.Add("key", a.apiKey)
-	q.Add("oauth_token", a.oauth2token.AccessToken)
 
 	for i, _ := range params {
 		if (i+1)%2 == 0 {
@@ -85,8 +95,18 @@ func (a *Api) apiUrl(route string, params ...string) *url.URL {
 	return u
 }
 
-func (a *Api) InitAuth() string {
-	return a.oauth2config.AuthCodeURL("state")
+func (a *Api) InitAuth(force bool) string {
+	u := a.oauth2config.AuthCodeURL("state")
+	au, _ := url.Parse(u)
+
+	if force {
+		q := au.Query()
+		q.Add("prompt", "consent")
+		q.Add("access_type", "offline")
+		au.RawQuery = q.Encode()
+	}
+	
+	return au.String()
 }
 
 func (a *Api) VerifyAuth(ctx context.Context, code string) (*oauth2.Token, error) {
@@ -95,31 +115,21 @@ func (a *Api) VerifyAuth(ctx context.Context, code string) (*oauth2.Token, error
 		return nil, err
 	}
 
-	a.oauth2token = *token
+	a.oauth2token = token
 
 	return token, nil
 }
 
-func (a *Api) About() (*User, error) {
-	data := &User{}
-
-	u := a.apiUrl("/about", "fields", "user")
-	res, err := req.R().
-		SetSuccessResult(data).
-		Get(u.String())
+func (a *Api) About() (*drive.User, error) {
+	about, err := a.ds.About.Get().Fields("*").Do()
 	if err != nil {
 		return nil, err
 	}
-	if res.StatusCode != http.StatusOK {
-		return nil, errors.New(res.Status)
-	}
 
-	return data, nil
+	return about.User, nil
 }
 
-func (a *Api) FileList(mimeType MimeType, parentId string) (*FileList, error) {
-	data := &FileList{}
-
+func (a *Api) FileList(mimeType MimeType, parentId string) (*drive.FileList, error) {
 	q := "not name = ''"
 	if mimeType != MimeTypeNone {
 		q = fmt.Sprintf("mimeType = '%s'", mimeType)
@@ -130,88 +140,29 @@ func (a *Api) FileList(mimeType MimeType, parentId string) (*FileList, error) {
 		q = fmt.Sprintf(`%s and '%s' in parents`, q, parentId)
 	}
 
-	u := a.apiUrl("/files", "q", q)
-	res, err := req.R().
-		SetSuccessResult(data).
-		Get(u.String())
-	if err != nil {
-		return nil, err
-	}
-	if res.StatusCode != http.StatusOK {
-		return nil, errors.New(res.Status)
-	}
-
-	return data, nil
+	return a.ds.Files.List().Q(q).Do()
 }
 
-func (a *Api) CreateDirectory(name, parentId string) (*File, error) {
-	data := &File{}
-
-	body := struct {
-		Name     string   `json:"name"`
-		MimeType string   `json:"mimeType"`
-		Parents  []string `json:"parents"`
-	}{
+func (a *Api) CreateDirectory(name, parentId string) (*drive.File, error) {
+	return a.ds.Files.Create(&drive.File{
 		Name:     name,
-		MimeType: string(MimeTypeFolder),
+		MimeType: MimeTypeFolder,
 		Parents:  []string{parentId},
-	}
-
-	u := a.apiUrl("/files")
-	res, err := req.R().
-		SetBody(body).
-		SetSuccessResult(data).
-		Post(u.String())
-	if err != nil {
-		return nil, err
-	}
-	if res.StatusCode != http.StatusOK {
-		return nil, errors.New(res.Status)
-	}
-
-	return data, nil
+	}).Do()
 }
 
 func (a *Api) DeleteDirectory(id string) error {
-	u := a.apiUrl("/files").JoinPath(id)
-
-	res, err := req.R().
-		SetBody(map[string]any{"trashed": true}).
-		Patch(u.String())
-	if err != nil {
-		return err
-	}
-	if res.StatusCode != http.StatusOK {
-		return errors.New(res.Status)
-	}
-
-	return nil
+	return a.ds.Files.Delete(id).Do()
 }
 
-func (a *Api) GetFileMeta(id string) (*File, error) {
-	data := &File{}
-
-	u := a.apiUrl("/files", "fields", "kind,id,name,mimeType,size").JoinPath(id)
-	res, err := req.R().
-		SetSuccessResult(data).
-		Get(u.String())
-	if err != nil {
-		return nil, err
-	}
-	if res.StatusCode != http.StatusOK {
-		return nil, errors.New(res.Status)
-	}
-
-	return data, nil
+func (a *Api) GetFileMeta(id string) (*drive.File, error) {
+	return a.ds.Files.Get(id).Fields("kind,id,name,mimeType,size").Do()
 }
 
 func (a *Api) DownloadFile(id string, w io.Writer) error {
 	u := a.apiUrl("/files", "alt", "media").JoinPath(id)
-	q := u.Query()
-	q.Del("oauth_token")
-	u.RawQuery = q.Encode()
 
-	res, err := req.DevMode().R().
+	res, err := req.R().
 		SetOutput(w).
 		SetBearerAuthToken(a.oauth2token.AccessToken).
 		Get(u.String())
@@ -223,4 +174,10 @@ func (a *Api) DownloadFile(id string, w io.Writer) error {
 	}
 
 	return nil
+}
+
+func (a *Api) UploadFile(name, parentId string, media io.Reader) (*drive.File, error) {
+	return a.ds.Files.Create(
+		&drive.File{Name: name, Parents: []string{parentId}}).
+		Media(media).Do()
 }

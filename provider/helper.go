@@ -2,31 +2,30 @@ package provider
 
 import (
 	"github.com/guneyin/disgo/internal/google"
-	"strconv"
+	"google.golang.org/api/drive/v3"
 )
 
-func (g *Google) toUserDto(user *google.User) *User {
+func (g *Google) toUserDto(user *drive.User) *User {
 	return &User{
-		Kind:         user.User.Kind,
-		DisplayName:  user.User.DisplayName,
-		PhotoLink:    user.User.PhotoLink,
-		Me:           user.User.Me,
-		PermissionId: user.User.PermissionId,
-		EmailAddress: user.User.EmailAddress,
+		Kind:         user.Kind,
+		DisplayName:  user.DisplayName,
+		PhotoLink:    user.PhotoLink,
+		Me:           user.Me,
+		PermissionId: user.PermissionId,
+		EmailAddress: user.EmailAddress,
 	}
 }
 
-func (g *Google) toFile(file *google.File) (*File, error) {
-	size, _ := strconv.ParseInt(file.Size, 10, 64)
+func (g *Google) toFile(file *drive.File) *File {
 	return &File{
 		Id:   file.Id,
 		Name: file.Name,
-		Size: size,
+		Size: file.Size,
 		Type: g.toMimeType(file.MimeType),
-	}, nil
+	}
 }
 
-func (g *Google) toFileList(fl *google.FileList) (*FileList, error) {
+func (g *Google) toFileList(fl *drive.FileList) (*FileList, error) {
 	list := make([]File, len(fl.Files))
 	for i, f := range fl.Files {
 		list[i] = File{

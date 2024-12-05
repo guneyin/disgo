@@ -26,12 +26,12 @@ type Provider interface {
 	GetFileMeta(id string) (*provider.File, error)
 	// DownloadFile download file content
 	DownloadFile(id string, w io.Writer) error
-	//UploadFile(file *provider.File) (*provider.File, error)
+	// UploadFile upload file
+	UploadFile(name, parentId string, media io.Reader) (*provider.File, error)
 }
 
 var _ Provider = (*provider.Google)(nil)
 
-func NewGoogle(config provider.GoogleConfig, accessToken []byte) (Provider, error) {
-	gp := provider.NewGoogle(config, accessToken)
-	return gp, nil
+func NewGoogle(ctx context.Context, config provider.GoogleConfig, oauth2 *oauth2.Token) (Provider, error) {
+	return provider.NewGoogle(ctx, config, oauth2)
 }

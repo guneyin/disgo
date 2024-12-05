@@ -26,3 +26,4 @@ go.work
 .idea/
 
 token.txt
+internal/google/testdata/token.json

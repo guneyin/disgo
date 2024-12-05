@@ -6,8 +6,10 @@ import (
 	"github.com/guneyin/disgo/internal/google"
 	"github.com/guneyin/disgo/internal/utils"
 	. "github.com/smartystreets/goconvey/convey"
+	"golang.org/x/oauth2"
 	"math/rand/v2"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -17,30 +19,31 @@ func TestOAuth2(t *testing.T) {
 		t.Skip("skipping test in short mode.")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
 
-	var tokenCh = make(chan string)
+	var tokenCh = make(chan *oauth2.Token)
 
 	Convey("Test Auth", t, func() {
-		gp := google.NewTestApi(t)
-		url := gp.InitAuth()
+		gp, err := google.NewTestApi(ctx, t)
+		So(err, ShouldBeNil)
+		url := gp.InitAuth(false)
 		So(url, ShouldNotBeEmpty)
 		t.Logf("URL: %s", url)
 
 		go google.ServeHTTP(ctx, gp, tokenCh)
 		go utils.OpenURL(url)
 
-		token := ""
+		token := &oauth2.Token{}
 		select {
 		case token = <-tokenCh:
 		case <-ctx.Done():
 		}
 
 		So(token, ShouldNotBeEmpty)
-		t.Logf("Token: %s", token)
+		t.Logf("Token: %-v", token)
 
-		err := google.WriteToken(token)
+		err = google.WriteToken(token)
 		So(err, ShouldBeNil)
 	})
 }
@@ -50,9 +53,12 @@ func TestAbout(t *testing.T) {
 		t.Skip("skipping test in short mode.")
 	}
 
-	Convey("Test About", t, func() {
-		gp := google.NewTestApi(t)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+	defer cancel()
 
+	Convey("Test About", t, func() {
+		gp, err := google.NewTestApi(ctx, t)
+		So(err, ShouldBeNil)
 		user, err := gp.About()
 		So(err, ShouldBeNil)
 		So(user, ShouldNotBeEmpty)
@@ -65,11 +71,14 @@ func TestFileList(t *testing.T) {
 		t.Skip("skipping test in short mode.")
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+	defer cancel()
+
 	parentId := "1Q6EXwfWKxNJuNLHefiwBViVg4WrcvgmJ"
 
 	Convey("Test File List", t, func() {
-		gp := google.NewTestApi(t)
-
+		gp, err := google.NewTestApi(ctx, t)
+		So(err, ShouldBeNil)
 		fileList, err := gp.FileList(google.MimeTypeNone, parentId)
 		So(err, ShouldBeNil)
 		So(fileList, ShouldNotBeEmpty)
@@ -84,10 +93,12 @@ func TestCreateDirectory(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode.")
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+	defer cancel()
 
 	Convey("Test Create FileList", t, func() {
-		gp := google.NewTestApi(t)
-
+		gp, err := google.NewTestApi(ctx, t)
+		So(err, ShouldBeNil)
 		parentId := "1dFNmPyQTuszo4dcYyRr6cDkebbWyazer"
 		dirName := fmt.Sprintf("my-test-dir-%d", rand.IntN(100))
 
@@ -102,13 +113,15 @@ func TestDeleteDirectory(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode.")
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+	defer cancel()
 
-	dirId := "1tFY3gHz6Yc66oP7MWuztKYqS8LerUg6-"
+	dirId := "1cWoA6o1wBWtfHciMhNFl1c3rc5DI8i3P"
 
 	Convey("Test Delete FileList", t, func() {
-		gp := google.NewTestApi(t)
-
-		err := gp.DeleteDirectory(dirId)
+		gp, err := google.NewTestApi(ctx, t)
+		So(err, ShouldBeNil)
+		err = gp.DeleteDirectory(dirId)
 		So(err, ShouldBeNil)
 	})
 }
@@ -120,8 +133,11 @@ func TestDownloadFile(t *testing.T) {
 
 	fileId := "1ytNbgLmYvHcTZr6u8Fc_zLPx21OjYuwv"
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+	defer cancel()
+
 	Convey("Test Download File", t, func() {
-		gp := google.NewTestApi(t)
+		gp, err := google.NewTestApi(ctx, t)
 
 		out, err := os.Create("downloaded.zip")
 		So(err, ShouldBeNil)
@@ -129,5 +145,28 @@ func TestDownloadFile(t *testing.T) {
 
 		err = gp.DownloadFile(fileId, out)
 		So(err, ShouldBeNil)
+	})
+}
+
+func TestApi_UploadFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+	defer cancel()
+
+	const testFile = "testdata/icons8-golang-480.png"
+	Convey("Test Upload File", t, func() {
+		gp, err := google.NewTestApi(ctx, t)
+		So(err, ShouldBeNil)
+
+		fileName := filepath.Base(testFile)
+		file, err := os.Open(testFile)
+		So(err, ShouldBeNil)
+
+		uploaded, err := gp.UploadFile(fileName, "1dFNmPyQTuszo4dcYyRr6cDkebbWyazer", file)
+		So(err, ShouldBeNil)
+		So(uploaded, ShouldNotBeEmpty)
 	})
 }

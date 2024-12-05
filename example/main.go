@@ -32,7 +32,10 @@ func main() {
 		CallBackUrl:  "http://localhost:8080/auth/google/callback",
 	}
 
-	gp := provider.NewGoogle(gc, nil)
+	gp, err := provider.NewGoogle(ctx, gc, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	hnd := &handler{
 		ctx: ctx,

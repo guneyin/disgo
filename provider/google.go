@@ -19,20 +19,25 @@ type GoogleConfig struct {
 	CallBackUrl  string `desc:"Callback URL"`
 }
 
-func NewGoogle(config GoogleConfig, accessToken []byte) *Google {
+func NewGoogle(ctx context.Context, config GoogleConfig, oauth2 *oauth2.Token) (*Google, error) {
+	api, err := google.NewApi(ctx, google.ApiConfig{
+		ApiKey:       config.ApiKey,
+		ClientID:     config.ClientID,
+		ClientSecret: config.ClientSecret,
+		CallBackUrl:  config.CallBackUrl,
+	}, oauth2)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Google{
 		cfg: config,
-		api: google.NewApi(google.ApiConfig{
-			ApiKey:       config.ApiKey,
-			ClientID:     config.ClientID,
-			ClientSecret: config.ClientSecret,
-			CallBackUrl:  config.CallBackUrl,
-		}, string(accessToken)),
-	}
+		api: api,
+	}, nil
 }
 
 func (g *Google) InitAuth() string {
-	return g.api.InitAuth()
+	return g.api.InitAuth(false)
 }
 
 func (g *Google) VerifyAuth(ctx context.Context, code string) (*oauth2.Token, error) {
@@ -72,7 +77,7 @@ func (g *Google) CreateDirectory(name, parentId string) (*File, error) {
 		return nil, err
 	}
 
-	return g.toFile(data)
+	return g.toFile(data), nil
 }
 
 func (g *Google) DeleteDirectory(id string) error {
@@ -85,9 +90,18 @@ func (g *Google) GetFileMeta(id string) (*File, error) {
 		return nil, err
 	}
 
-	return g.toFile(data)
+	return g.toFile(data), nil
 }
 
 func (g *Google) DownloadFile(id string, w io.Writer) error {
 	return g.api.DownloadFile(id, w)
+}
+
+func (g *Google) UploadFile(name, parentId string, media io.Reader) (*File, error) {
+	data, err := g.api.UploadFile(name, parentId, media)
+	if err != nil {
+		return nil, err
+	}
+
+	return g.toFile(data), nil
 }
