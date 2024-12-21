@@ -25,14 +25,14 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
-	gc := provider.GoogleConfig{
+	gc := &provider.GoogleConfig{
 		ApiKey:       os.Getenv("DSG_GOOGLE_API_KEY"),
 		ClientID:     os.Getenv("DSG_GOOGLE_CLIENT_ID"),
 		ClientSecret: os.Getenv("DSG_GOOGLE_SECRET"),
 		CallBackUrl:  "http://localhost:8080/auth/google/callback",
 	}
 
-	gp, err := provider.NewGoogle(ctx, gc, nil)
+	gp, err := provider.NewGoogleDrive(ctx, gc, nil)
 	if err != nil {
 		log.Fatal(err)
 	}

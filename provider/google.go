@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/guneyin/disgo/internal/google"
 	"golang.org/x/oauth2"
 	"io"
@@ -19,19 +20,25 @@ type GoogleConfig struct {
 	CallBackUrl  string `desc:"Callback URL"`
 }
 
-func NewGoogle(ctx context.Context, config GoogleConfig, oauth2 *oauth2.Token) (*Google, error) {
+func NewGoogleConfig(d []byte) (*GoogleConfig, error) {
+	var cfg GoogleConfig
+	err := json.Unmarshal(d, &cfg)
+	return &cfg, err
+}
+
+func NewGoogleDrive(ctx context.Context, config *GoogleConfig, token *oauth2.Token) (*Google, error) {
 	api, err := google.NewApi(ctx, google.ApiConfig{
 		ApiKey:       config.ApiKey,
 		ClientID:     config.ClientID,
 		ClientSecret: config.ClientSecret,
 		CallBackUrl:  config.CallBackUrl,
-	}, oauth2)
+	}, token)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Google{
-		cfg: config,
+		cfg: *config,
 		api: api,
 	}, nil
 }

@@ -2,9 +2,16 @@ package disgo
 
 import (
 	"context"
+	"fmt"
 	"github.com/guneyin/disgo/provider"
 	"golang.org/x/oauth2"
 	"io"
+)
+
+type ProviderType string
+
+const (
+	ProviderTypeGoogle ProviderType = "google"
 )
 
 type Provider interface {
@@ -32,6 +39,29 @@ type Provider interface {
 
 var _ Provider = (*provider.Google)(nil)
 
-func NewGoogle(ctx context.Context, config provider.GoogleConfig, oauth2 *oauth2.Token) (Provider, error) {
-	return provider.NewGoogle(ctx, config, oauth2)
+func NewProviderType(pt string) (ProviderType, error) {
+	switch ProviderType(pt) {
+	case ProviderTypeGoogle:
+		return ProviderType(pt), nil
+	}
+	return "", fmt.Errorf("unknown provider type: %s", pt)
+}
+
+func New(ctx context.Context, pt ProviderType, config, token []byte) (Provider, error) {
+	switch pt {
+	case ProviderTypeGoogle:
+		return NewGoogleDrive(ctx, config, token)
+	default:
+		return nil, fmt.Errorf("unknown provider: %s", pt)
+	}
+}
+
+func NewGoogleDrive(ctx context.Context, config, token []byte) (Provider, error) {
+	cfg, err := provider.NewGoogleConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	tkn, _ := provider.NewOAuth2Token(token)
+
+	return provider.NewGoogleDrive(ctx, cfg, tkn)
 }

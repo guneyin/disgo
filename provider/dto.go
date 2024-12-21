@@ -8,6 +8,8 @@ const (
 	MimeTypeFile             = "file"
 )
 
+//todo: make this generic
+
 type User struct {
 	Kind         string `json:"kind"`
 	DisplayName  string `json:"displayName"`

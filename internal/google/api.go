@@ -54,7 +54,7 @@ type ApiConfig struct {
 	CallBackUrl  string
 }
 
-func NewApi(ctx context.Context, config ApiConfig, ts *oauth2.Token) (*Api, error) {
+func NewApi(ctx context.Context, config ApiConfig, token *oauth2.Token) (*Api, error) {
 	oauth2Config := &oauth2.Config{
 		RedirectURL:  config.CallBackUrl,
 		ClientID:     config.ClientID,
@@ -63,7 +63,7 @@ func NewApi(ctx context.Context, config ApiConfig, ts *oauth2.Token) (*Api, erro
 		Endpoint:     google.Endpoint,
 	}
 
-	ds, err := drive.NewService(ctx, option.WithTokenSource(oauth2Config.TokenSource(ctx, ts)))
+	ds, err := drive.NewService(ctx, option.WithTokenSource(oauth2Config.TokenSource(ctx, token)))
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func NewApi(ctx context.Context, config ApiConfig, ts *oauth2.Token) (*Api, erro
 	return &Api{
 		rc:           req.C(),
 		apiKey:       config.ApiKey,
-		oauth2token:  ts,
+		oauth2token:  token,
 		oauth2config: oauth2Config,
 		ds:           ds,
 	}, nil
@@ -105,7 +105,7 @@ func (a *Api) InitAuth(force bool) string {
 		q.Add("access_type", "offline")
 		au.RawQuery = q.Encode()
 	}
-	
+
 	return au.String()
 }
 

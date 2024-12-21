@@ -1,9 +1,17 @@
 package provider
 
 import (
+	"encoding/json"
 	"github.com/guneyin/disgo/internal/google"
+	"golang.org/x/oauth2"
 	"google.golang.org/api/drive/v3"
 )
+
+func NewOAuth2Token(d []byte) (*oauth2.Token, error) {
+	token := &oauth2.Token{}
+	err := json.Unmarshal(d, token)
+	return token, err
+}
 
 func (g *Google) toUserDto(user *drive.User) *User {
 	return &User{
